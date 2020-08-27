@@ -62,17 +62,18 @@ public class LojaDeVinhosService {
 
     public List<QuantidadeTotalPorClienteDTO> buscarQuantidadeDeVendasPorCliente() throws HistoricoNotFoundException, CadastroClienteNotFoundException {
         List<VendaDTO> vendaDTOS = BuscarHistoricoDeCompras();
-        Map<String, Integer> stringIntegerMap = agruparVendas(vendaDTOS);
-        return quantidadeTotalPorClienteDTOSListBuild(ordenarMapStringIntegerDecrescente(stringIntegerMap));
+        Map<Integer, Integer> mapVendas = agruparVendas(vendaDTOS);
+        return quantidadeTotalPorClienteDTOSListBuild(ordenarMapIntegerIntegerDecrescente(mapVendas));
     }
 
-    private Map<String, Integer> agruparVendas(List<VendaDTO> vendaDTOS) {
-        Map<String, Integer> clientesQuantidadeCompras = new HashMap<>();
+    private Map<Integer, Integer> agruparVendas(List<VendaDTO> vendaDTOS) {
+        Map<Integer, Integer> clientesQuantidadeCompras = new HashMap<>();
         for (VendaDTO vendaDTO : vendaDTOS) {
-            if (clientesQuantidadeCompras.containsKey(vendaDTO.getCliente())) {
-                clientesQuantidadeCompras.put(vendaDTO.getCliente(), clientesQuantidadeCompras.get(vendaDTO.getCliente()) + 1);
+            var clienteId = convertClienteId(vendaDTO.getCliente());
+            if (clientesQuantidadeCompras.containsKey(clienteId)) {
+                clientesQuantidadeCompras.put(clienteId, clientesQuantidadeCompras.get(clienteId) + 1);
             } else {
-                clientesQuantidadeCompras.put(vendaDTO.getCliente(), 1);
+                clientesQuantidadeCompras.put(clienteId, 1);
             }
         }
         return clientesQuantidadeCompras;
@@ -128,6 +129,15 @@ public class LojaDeVinhosService {
                 .build();
     }
 
+    private Map<Integer, Integer> ordenarMapIntegerIntegerDecrescente(Map<Integer, Integer> map) {
+        LinkedHashMap<Integer, Integer> collect;
+        collect = map.entrySet()
+                .stream()
+                .sorted((objeto1, objeto2) -> Integer.compare(objeto2.getValue(), objeto1.getValue()))
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, (c1, c2) -> c1, LinkedHashMap::new));
+        return collect;
+    }
+
     private Map<String, Integer> ordenarMapStringIntegerDecrescente(Map<String, Integer> map) {
         LinkedHashMap<String, Integer> collect;
         collect = map.entrySet()
@@ -164,13 +174,13 @@ public class LojaDeVinhosService {
         return new ValorTotalClienteDTO(buscarClienteId(clienteId).getNome(), clienteId, valorTotal);
     }
 
-    private List<QuantidadeTotalPorClienteDTO> quantidadeTotalPorClienteDTOSListBuild(Map<String, Integer> map) throws CadastroClienteNotFoundException {
+    private List<QuantidadeTotalPorClienteDTO> quantidadeTotalPorClienteDTOSListBuild(Map<Integer, Integer> map) throws CadastroClienteNotFoundException {
         List<QuantidadeTotalPorClienteDTO> lista;
         lista = map.entrySet().stream()
                 .map(entry -> {
                     try {
-                        return QuantidadeTotalPorClienteDTO.builder().nome(buscarClienteId(convertClienteId(entry.getKey())).getNome())
-                                .id(convertClienteId(entry.getKey()))
+                        return QuantidadeTotalPorClienteDTO.builder().nome(buscarClienteId(entry.getKey()).getNome())
+                                .id(entry.getKey())
                                 .quantidadeDeCompras(entry.getValue())
                                 .build();
                     } catch (CadastroClienteNotFoundException e) {
