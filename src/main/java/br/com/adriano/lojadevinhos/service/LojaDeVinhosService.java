@@ -1,6 +1,8 @@
 package br.com.adriano.lojadevinhos.service;
 
 
+import br.com.adriano.lojadevinhos.Exception.CadastroClienteNotFoundException;
+import br.com.adriano.lojadevinhos.Exception.HistoricoNotFoundException;
 import br.com.adriano.lojadevinhos.consumer.VelasquezClient;
 import br.com.adriano.lojadevinhos.consumerdto.ClienteDTO;
 import br.com.adriano.lojadevinhos.consumerdto.ItemDTO;
@@ -8,6 +10,8 @@ import br.com.adriano.lojadevinhos.consumerdto.VendaDTO;
 import br.com.adriano.lojadevinhos.requestdto.QuantidadeTotalPorClienteDTO;
 import br.com.adriano.lojadevinhos.requestdto.QuantidadeVinhoDTO;
 import br.com.adriano.lojadevinhos.requestdto.ValorTotalClienteDTO;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -20,70 +24,85 @@ import java.util.stream.Collectors;
 public class LojaDeVinhosService {
 
     private final VelasquezClient velasquezClient;
+    private static final Logger LOGGER = LoggerFactory.getLogger(LojaDeVinhosService.class);
 
     public LojaDeVinhosService(VelasquezClient velasquezClient) {
         this.velasquezClient = velasquezClient;
     }
 
-    public ValorTotalClienteDTO buscarCompraDeMaiorValor(Integer ano) throws Exception {
-        Optional<ValorTotalClienteDTO> valorTotalClienteDTO = velasquezClient.buscarHistoricoVendas()
+    public ValorTotalClienteDTO buscarCompraDeMaiorValor(Integer ano) throws HistoricoNotFoundException {
+        List<VendaDTO> vendaDTOS = BuscarHistoricoDeCompras();
+
+        Optional<ValorTotalClienteDTO> valorTotalClienteDTO = vendaDTOS
                 .stream()
                 .filter(vendaDTO -> convertStringLocalDate(vendaDTO.getData()).getYear() == ano)
                 .max(Comparator.comparing(vendaDTO -> vendaDTO.getValorTotal()))
-                .map(vendaDTO -> valorTotalClienteDTOBuild(convertClienteId(vendaDTO.getCliente()), vendaDTO.getValorTotal()));
+                .map(vendaDTO -> {
+                    try {
+                        return valorTotalClienteDTOBuild(convertClienteId(vendaDTO.getCliente()), vendaDTO.getValorTotal());
+                    } catch (CadastroClienteNotFoundException e) {
+                        LOGGER.error("Erro ao buscar cadastro cliente ID: " + convertClienteId(vendaDTO.getCliente()));
+                    }
+                    return null;
+                });
         if (!valorTotalClienteDTO.isPresent()) {
-            throw new Exception("Erro ao buscar dados!");
+            throw new HistoricoNotFoundException("Erro ao buscar histórico de valores!");
         }
         return valorTotalClienteDTO.get();
     }
 
+    private List<VendaDTO> BuscarHistoricoDeCompras() throws HistoricoNotFoundException {
+        List<VendaDTO> vendaDTOS = velasquezClient.buscarHistoricoVendas();
+        if (vendaDTOS.isEmpty()) {
+            throw new HistoricoNotFoundException("Histório de vendas não encontrado!");
+        }
+        return vendaDTOS;
+    }
 
-    public List<QuantidadeTotalPorClienteDTO> buscarQuantidadeDeVendasPorCliente() {
+
+    public List<QuantidadeTotalPorClienteDTO> buscarQuantidadeDeVendasPorCliente() throws HistoricoNotFoundException, CadastroClienteNotFoundException {
+        List<VendaDTO> vendaDTOS = BuscarHistoricoDeCompras();
+        Map<String, Integer> stringIntegerMap = agruparVendas(vendaDTOS);
+        return quantidadeTotalPorClienteDTOSListBuild(ordenarMapStringIntegerDecrescente(stringIntegerMap));
+    }
+
+    private Map<String, Integer> agruparVendas(List<VendaDTO> vendaDTOS) {
         Map<String, Integer> clientesQuantidadeCompras = new HashMap<>();
-        for (VendaDTO vendaDTO : velasquezClient.buscarHistoricoVendas()) {
+        for (VendaDTO vendaDTO : vendaDTOS) {
             if (clientesQuantidadeCompras.containsKey(vendaDTO.getCliente())) {
                 clientesQuantidadeCompras.put(vendaDTO.getCliente(), clientesQuantidadeCompras.get(vendaDTO.getCliente()) + 1);
             } else {
                 clientesQuantidadeCompras.put(vendaDTO.getCliente(), 1);
             }
         }
-        return quantidadeTotalPorClienteDTOSListBuild(ordenarMapStringIntegerDecrescente(clientesQuantidadeCompras));
+        return clientesQuantidadeCompras;
     }
 
-    public List<ValorTotalClienteDTO> buscarVendasPorValorDecrescente() {
-        List<ValorTotalClienteDTO> collect = velasquezClient.buscarHistoricoVendas()
+    public List<ValorTotalClienteDTO> buscarVendasPorValorDecrescente(Integer limite) throws HistoricoNotFoundException {
+        List<VendaDTO> vendaDTOS = BuscarHistoricoDeCompras();
+        List<ValorTotalClienteDTO> lista = vendaDTOS
                 .stream()
                 .sorted((c1, c2) -> c2.getValorTotal().compareTo(c1.getValorTotal()))
-                .map(vendaDTO -> valorTotalClienteDTOBuild(convertClienteId(vendaDTO.getCliente()), vendaDTO.getValorTotal()))
+                .map(vendaDTO -> {
+                    try {
+                        return valorTotalClienteDTOBuild(convertClienteId(vendaDTO.getCliente()), vendaDTO.getValorTotal());
+                    } catch (CadastroClienteNotFoundException e) {
+                        LOGGER.error("Erro ao buscar cadastro cliente ID: " + convertClienteId(vendaDTO.getCliente()));
+                    }
+                    return null;
+                })
+                .limit(limite > 0 ? limite : vendaDTOS.size())
                 .collect(Collectors.toList());
-        return collect;
-
-    }
-
-    public List<ValorTotalClienteDTO> buscarVendasPorValorDecrescente2() {
-
-        Map<String, BigDecimal> clientesCompras = new HashMap<>();
-        for (VendaDTO vendaDTO : velasquezClient.buscarHistoricoVendas()) {
-            if (clientesCompras.containsKey(vendaDTO.getCliente())) {
-                clientesCompras.put(vendaDTO.getCliente(), clientesCompras.get(vendaDTO.getCliente()).add(vendaDTO.getValorTotal()));
-            } else {
-                clientesCompras.put(vendaDTO.getCliente(), vendaDTO.getValorTotal());
-            }
+        if(lista.contains(null)){
+            throw new HistoricoNotFoundException("Erro ao buscar histórico de vendas!");
         }
-
-        List<ValorTotalClienteDTO> collect = clientesCompras.entrySet()
-                .stream()
-                .sorted((objeto1, objeto2) -> (objeto2.getValue().compareTo(objeto1.getValue())))
-                .map(key -> valorTotalClienteDTOBuild(convertClienteId(key.getKey()), key.getValue()))
-                .collect(Collectors.toList());
-
-        return collect;
-
+        return lista;
     }
 
-    public QuantidadeVinhoDTO buscarVinhoMaisVendido() {
+    public QuantidadeVinhoDTO buscarVinhoMaisVendido() throws HistoricoNotFoundException {
+        List<VendaDTO> vendaDTOS = BuscarHistoricoDeCompras();
         Map<String, Integer> clientesQuantidadeCompras = new HashMap<>();
-        for (VendaDTO vendaDTO : velasquezClient.buscarHistoricoVendas()) {
+        for (VendaDTO vendaDTO : vendaDTOS) {
             for (ItemDTO itemDTO : vendaDTO.getItens()) {
                 if (clientesQuantidadeCompras.containsKey(itemDTO.getProduto())) {
                     clientesQuantidadeCompras.put(itemDTO.getProduto(), clientesQuantidadeCompras.get(itemDTO.getProduto()) + 1);
@@ -121,14 +140,18 @@ public class LojaDeVinhosService {
         return LocalDate.parse(data, DateTimeFormatter.ofPattern("dd-MM-yyyy"));
     }
 
-    private ClienteDTO buscarClienteId(Integer clienteId) {
+    private ClienteDTO buscarClienteId(Integer clienteId) throws CadastroClienteNotFoundException {
         List<ClienteDTO> clienteDTOS = velasquezClient.buscarClientes();
-
-        ClienteDTO clienteDTO = clienteDTOS.stream()
+        if (clienteDTOS.isEmpty()) {
+            throw new CadastroClienteNotFoundException("Cadastro de clientes não encontrado!");
+        }
+        Optional<ClienteDTO> clienteDTO = clienteDTOS.stream()
                 .filter(c -> clienteId == c.getId())
-                .findFirst()
-                .get();
-        return clienteDTO;
+                .findFirst();
+        if (!clienteDTO.isPresent()) {
+            throw new CadastroClienteNotFoundException("Cliente não encontrado");
+        }
+        return clienteDTO.get();
 
     }
 
@@ -136,11 +159,11 @@ public class LojaDeVinhosService {
         return Integer.parseInt(clienteId.replaceAll("[.]+", ""));
     }
 
-    private ValorTotalClienteDTO valorTotalClienteDTOBuild(Integer clienteId, BigDecimal valorTotal) {
+    private ValorTotalClienteDTO valorTotalClienteDTOBuild(Integer clienteId, BigDecimal valorTotal) throws CadastroClienteNotFoundException {
         return new ValorTotalClienteDTO(buscarClienteId(clienteId).getNome(), clienteId, valorTotal);
     }
 
-    private List<QuantidadeTotalPorClienteDTO> quantidadeTotalPorClienteDTOSListBuild(Map<String, Integer> map) {
+    private List<QuantidadeTotalPorClienteDTO> quantidadeTotalPorClienteDTOSListBuild(Map<String, Integer> map) throws CadastroClienteNotFoundException {
         List<QuantidadeTotalPorClienteDTO> lista = new ArrayList<>();
         for (String key : map.keySet()) {
             QuantidadeTotalPorClienteDTO dto = new QuantidadeTotalPorClienteDTO(buscarClienteId(convertClienteId(key)).getNome(), convertClienteId(key), map.get(key));

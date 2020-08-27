@@ -26,17 +26,16 @@ public class VelasquezClient {
 
     public List<ClienteDTO> buscarClientes() {
         var uri = uriComponents().toUriString() + "/598b16291100004705515ec5";
-        ResponseEntity<ClienteDTO[]> entity = template.getForEntity(uri, ClienteDTO[].class);
+        ResponseEntity<ClienteDTO[]> clienteDTOList = template.getForEntity(uri, ClienteDTO[].class);
 
-        return Arrays.asList(entity.getBody());
+        return Arrays.asList(clienteDTOList.getBody());
     }
 
     public List<VendaDTO> buscarHistoricoVendas() {
         var uri = uriComponents().toUriString() + "/598b16861100004905515ec7";
-        ResponseEntity<VendaDTO[]> entity = template.getForEntity(uri, VendaDTO[].class);
+        ResponseEntity<VendaDTO[]> vendaDTOList = template.getForEntity(uri, VendaDTO[].class);
 
-        return Arrays.asList(entity.getBody());
+        return Arrays.asList(vendaDTOList.getBody());
     }
-
 
 }

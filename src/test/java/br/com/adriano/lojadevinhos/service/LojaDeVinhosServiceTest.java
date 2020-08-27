@@ -1,5 +1,7 @@
 package br.com.adriano.lojadevinhos.service;
 
+import br.com.adriano.lojadevinhos.Exception.CadastroClienteNotFoundException;
+import br.com.adriano.lojadevinhos.Exception.HistoricoNotFoundException;
 import br.com.adriano.lojadevinhos.consumer.VelasquezClient;
 import br.com.adriano.lojadevinhos.consumerdto.ClienteDTO;
 import br.com.adriano.lojadevinhos.consumerdto.ItemDTO;
@@ -50,6 +52,55 @@ public class LojaDeVinhosServiceTest {
     }
 
     @Test
+    public void deveGerarExceptionBuscarCompraDeMaiorValorNaoEncontrarCodigoCliente() {
+        List<ClienteDTO> clienteDTOList = new ArrayList<>();
+        clienteDTOList.add(ClienteDTO.builder()
+                .id(5)
+                .cpf("000.000.000-01")
+                .nome("Vinicius")
+                .build());
+        when(velasquezClient.buscarHistoricoVendas()).thenReturn(vendaDTOListBuild());
+        when(velasquezClient.buscarClientes()).thenReturn(clienteDTOList);
+
+        try {
+            ValorTotalClienteDTO atual = service.buscarCompraDeMaiorValor(2016);
+            fail("Deve gerar HistoricoNotFoundException!");
+        } catch (HistoricoNotFoundException e) {
+            assertEquals("Erro ao buscar histórico de valores!", e.getMessage());
+        } catch (Exception e) {
+            fail("Deve gerar HistoricoNotFoundException!");
+        }
+    }
+
+    @Test
+    public void deveGerarExceptionQuandoBuscarCompraDeMaiorValorENaoEncontrarHistorico() {
+        when(velasquezClient.buscarClientes()).thenReturn(clienteDTOListBuild());
+
+        try {
+            service.buscarCompraDeMaiorValor(2016);
+            fail("Deve gerar HistoricoNotFoundException!");
+        } catch (HistoricoNotFoundException e) {
+            assertEquals("Histório de vendas não encontrado!", e.getMessage());
+        } catch (Exception e) {
+            fail("Deve gerar HistoricoNotFoundException!");
+        }
+    }
+
+    @Test
+    public void deveGerarExceptionQuandoBuscarCompraDeMaiorValorENaoEncontrarCadastroCliente() {
+        when(velasquezClient.buscarHistoricoVendas()).thenReturn(vendaDTOListBuild());
+
+        try {
+            service.buscarCompraDeMaiorValor(2016);
+            fail("Deve gerar HistoricoNotFoundException!");
+        } catch (HistoricoNotFoundException e) {
+            assertEquals("Erro ao buscar histórico de valores!", e.getMessage());
+        } catch (Exception e) {
+            fail("Deve gerar HistoricoNotFoundException!");
+        }
+    }
+
+    @Test
     public void deveBuscarQuantidadeDeVendasPorClienteComSucesso() {
         List<QuantidadeTotalPorClienteDTO> expectativa = new ArrayList<>();
         expectativa.add(QuantidadeTotalPorClienteDTO.builder()
@@ -68,22 +119,126 @@ public class LojaDeVinhosServiceTest {
         try {
             List<QuantidadeTotalPorClienteDTO> atual = service.buscarQuantidadeDeVendasPorCliente();
             assertEquals(expectativa, atual);
-        } catch (Exception e){
+        } catch (Exception e) {
             fail("Deve finalizar com sucesso!");
         }
     }
 
-//    @Test
-//    void buscarVendasPorValorDecrescente() {
-//    }
-//
-//    @Test
-//    void buscarVendasPorValorDecrescente2() {
-//    }
-//
-//    @Test
-//    void buscarVinhoMaisVendido() {
-//    }
+    @Test
+    public void deveGerarExceptionQuandoBuscarQuantidadeDeVendasPorClienteENaoEncontrarHistorico() {
+        when(velasquezClient.buscarClientes()).thenReturn(clienteDTOListBuild());
+
+        try {
+            service.buscarQuantidadeDeVendasPorCliente();
+            fail("Deve gerar HistoricoNotFoundException!");
+        } catch (HistoricoNotFoundException e) {
+            assertEquals("Histório de vendas não encontrado!", e.getMessage());
+        } catch (Exception e) {
+            fail("Deve gerar HistoricoNotFoundException!");
+        }
+    }
+
+    @Test
+    public void deveGerarExceptionQuandoBuscarQuantidadeDeVendasPorClienteENaoEncontrarCadastroCliente() {
+        when(velasquezClient.buscarHistoricoVendas()).thenReturn(vendaDTOListBuild());
+
+        try {
+            service.buscarQuantidadeDeVendasPorCliente();
+            fail("Deve gerar CadastroClienteNotFoundException!");
+        } catch (CadastroClienteNotFoundException e) {
+            assertEquals("Cadastro de clientes não encontrado!", e.getMessage());
+        } catch (Exception e) {
+            fail("Deve gerar CadastroClienteNotFoundException!");
+        }
+    }
+
+    @Test
+    public void deveBuscarVendasPorValorDecrescenteComSucesso() {
+        List<ValorTotalClienteDTO> expectativa = new ArrayList<>();
+        expectativa.add(ValorTotalClienteDTO.builder()
+                .clienteId(2)
+                .nome("Marcos")
+                .valorTotal(BigDecimal.valueOf(319))
+                .build());
+        expectativa.add(ValorTotalClienteDTO.builder()
+                .clienteId(1)
+                .nome("Vinicius")
+                .valorTotal(BigDecimal.valueOf(199))
+                .build());
+        expectativa.add(ValorTotalClienteDTO.builder()
+                .clienteId(2)
+                .nome("Marcos")
+                .valorTotal(BigDecimal.valueOf(199))
+                .build());
+
+        when(velasquezClient.buscarHistoricoVendas()).thenReturn(vendaDTOListBuild());
+        when(velasquezClient.buscarClientes()).thenReturn(clienteDTOListBuild());
+        try {
+            List<ValorTotalClienteDTO> atual = service.buscarVendasPorValorDecrescente(10);
+            assertEquals(expectativa, atual);
+        } catch (Exception e) {
+            fail("Deve finalizar com sucesso!");
+        }
+    }
+
+    @Test
+    public void deveGerarExceptionQuandoBuscarVendasPorValorDecrescenteENaoEncontrarHistorico() {
+        when(velasquezClient.buscarClientes()).thenReturn(clienteDTOListBuild());
+
+        try {
+            service.buscarVendasPorValorDecrescente(10);
+            fail("Deve gerar HistoricoNotFoundException!");
+        } catch (HistoricoNotFoundException e) {
+            assertEquals("Histório de vendas não encontrado!", e.getMessage());
+        } catch (Exception e) {
+            fail("Deve gerar HistoricoNotFoundException!");
+        }
+    }
+
+    @Test
+    public void deveGerarExceptionQuandoBuscarVendasPorValorDecrescenteENaoEncontrarCadastroCliente() {
+        when(velasquezClient.buscarHistoricoVendas()).thenReturn(vendaDTOListBuild());
+
+        try {
+            service.buscarVendasPorValorDecrescente(10);
+            fail("Deve gerar CadastroClienteNotFoundException!");
+        } catch (HistoricoNotFoundException e) {
+            assertEquals("Erro ao buscar histórico de vendas!", e.getMessage());
+        } catch (Exception e) {
+            fail("Deve gerar CadastroClienteNotFoundException!");
+        }
+    }
+
+    @Test
+    public void deveBuscarVinhoMaisVendidoComSucesso() {
+        QuantidadeVinhoDTO expectativa = QuantidadeVinhoDTO.builder()
+                .nome("Casa Silva Gran Reserva")
+                .quantidadeVendida(4)
+                .build();
+        when(velasquezClient.buscarHistoricoVendas()).thenReturn(vendaDTOListBuild());
+        when(velasquezClient.buscarClientes()).thenReturn(clienteDTOListBuild());
+
+        try {
+            QuantidadeVinhoDTO atual = service.buscarVinhoMaisVendido();
+            assertEquals(expectativa, atual);
+        } catch (Exception e) {
+            fail("Deve finalizar com sucesso!");
+        }
+    }
+
+    @Test
+    public void deveGerarExceptionQuandoBuscarVinhoMaisVendidoENaoEncontrarHistorico() {
+        when(velasquezClient.buscarClientes()).thenReturn(clienteDTOListBuild());
+
+        try {
+            service.buscarVinhoMaisVendido();
+            fail("Deve gerar HistoricoNotFoundException!");
+        } catch (HistoricoNotFoundException e) {
+            assertEquals("Histório de vendas não encontrado!", e.getMessage());
+        } catch (Exception e) {
+            fail("Deve gerar HistoricoNotFoundException!");
+        }
+    }
 
     private List<VendaDTO> vendaDTOListBuild() {
         List<VendaDTO> lista = new ArrayList<>();
@@ -102,11 +257,12 @@ public class LojaDeVinhosServiceTest {
                 .valorTotal(BigDecimal.valueOf(319))
                 .itens(itemDTOS)
                 .build());
+
         lista.add(VendaDTO.builder()
                 .cliente("000.000.000.02")
                 .data("20-02-2016")
                 .valorTotal(BigDecimal.valueOf(199))
-                .itens(itemDTOS)
+                .itens(itemDTOListBuild())
                 .build());
         return lista;
     }
