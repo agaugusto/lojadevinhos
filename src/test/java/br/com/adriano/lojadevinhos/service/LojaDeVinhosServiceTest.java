@@ -146,7 +146,7 @@ public class LojaDeVinhosServiceTest {
             service.buscarQuantidadeDeVendasPorCliente();
             fail("Deve gerar CadastroClienteNotFoundException!");
         } catch (CadastroClienteNotFoundException e) {
-            assertEquals("Cadastro de clientes não encontrado!", e.getMessage());
+            assertEquals("Erro ao buscar cliente!", e.getMessage());
         } catch (Exception e) {
             fail("Deve gerar CadastroClienteNotFoundException!");
         }

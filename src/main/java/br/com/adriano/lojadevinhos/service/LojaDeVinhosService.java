@@ -41,7 +41,7 @@ public class LojaDeVinhosService {
                     try {
                         return valorTotalClienteDTOBuild(convertClienteId(vendaDTO.getCliente()), vendaDTO.getValorTotal());
                     } catch (CadastroClienteNotFoundException e) {
-                        LOGGER.error("Erro ao buscar cadastro cliente ID: " + convertClienteId(vendaDTO.getCliente()));
+                        LOGGER.error("Erro ao buscar cadastro cliente ID: ".concat(String.valueOf(convertClienteId(vendaDTO.getCliente()))));
                     }
                     return null;
                 });
@@ -87,13 +87,13 @@ public class LojaDeVinhosService {
                     try {
                         return valorTotalClienteDTOBuild(convertClienteId(vendaDTO.getCliente()), vendaDTO.getValorTotal());
                     } catch (CadastroClienteNotFoundException e) {
-                        LOGGER.error("Erro ao buscar cadastro cliente ID: " + convertClienteId(vendaDTO.getCliente()));
+                        LOGGER.error("Erro ao buscar cadastro cliente ID: ".concat(String.valueOf(convertClienteId(vendaDTO.getCliente()))));
                     }
                     return null;
                 })
                 .limit(limite > 0 ? limite : vendaDTOS.size())
                 .collect(Collectors.toList());
-        if(lista.contains(null)){
+        if (lista.contains(null)) {
             throw new HistoricoNotFoundException("Erro ao buscar histórico de vendas!");
         }
         return lista;
@@ -129,7 +129,8 @@ public class LojaDeVinhosService {
     }
 
     private Map<String, Integer> ordenarMapStringIntegerDecrescente(Map<String, Integer> map) {
-        LinkedHashMap<String, Integer> collect = map.entrySet()
+        LinkedHashMap<String, Integer> collect;
+        collect = map.entrySet()
                 .stream()
                 .sorted((objeto1, objeto2) -> Integer.compare(objeto2.getValue(), objeto1.getValue()))
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, (c1, c2) -> c1, LinkedHashMap::new));
@@ -146,7 +147,7 @@ public class LojaDeVinhosService {
             throw new CadastroClienteNotFoundException("Cadastro de clientes não encontrado!");
         }
         Optional<ClienteDTO> clienteDTO = clienteDTOS.stream()
-                .filter(c -> clienteId == c.getId())
+                .filter(c -> clienteId.equals(c.getId()))
                 .findFirst();
         if (!clienteDTO.isPresent()) {
             throw new CadastroClienteNotFoundException("Cliente não encontrado");
@@ -164,10 +165,22 @@ public class LojaDeVinhosService {
     }
 
     private List<QuantidadeTotalPorClienteDTO> quantidadeTotalPorClienteDTOSListBuild(Map<String, Integer> map) throws CadastroClienteNotFoundException {
-        List<QuantidadeTotalPorClienteDTO> lista = new ArrayList<>();
-        for (String key : map.keySet()) {
-            QuantidadeTotalPorClienteDTO dto = new QuantidadeTotalPorClienteDTO(buscarClienteId(convertClienteId(key)).getNome(), convertClienteId(key), map.get(key));
-            lista.add(dto);
+        List<QuantidadeTotalPorClienteDTO> lista;
+        lista = map.entrySet().stream()
+                .map(entry -> {
+                    try {
+                        return QuantidadeTotalPorClienteDTO.builder().nome(buscarClienteId(convertClienteId(entry.getKey())).getNome())
+                                .id(convertClienteId(entry.getKey()))
+                                .quantidadeDeCompras(entry.getValue())
+                                .build();
+                    } catch (CadastroClienteNotFoundException e) {
+                        LOGGER.error("Erro ao buscar cliente!");
+                    }
+                    return null;
+                })
+                .collect(Collectors.toList());
+        if (lista.contains(null)) {
+            throw new CadastroClienteNotFoundException("Erro ao buscar cliente!");
         }
         return lista;
     }

@@ -21,12 +21,12 @@ public class LojaDeVinhosController {
     }
 
     @GetMapping("maiorcompra")
-    public ResponseEntity<?> buscarCompraDeMaiorValor() throws Exception {
+    public ResponseEntity<?> buscarCompraDeMaiorValor() throws HistoricoNotFoundException {
         return new ResponseEntity<>(lojaDeVinhosService.buscarCompraDeMaiorValor(2016), HttpStatus.OK);
     }
 
     @GetMapping("maiorcompra/{ano}")
-    public ResponseEntity<?> buscarCompraDeMaiorValor(@PathVariable("ano") Integer ano) throws Exception {
+    public ResponseEntity<?> buscarCompraDeMaiorValor(@PathVariable("ano") Integer ano) throws HistoricoNotFoundException {
         return new ResponseEntity<>(lojaDeVinhosService.buscarCompraDeMaiorValor(ano), HttpStatus.OK);
     }
 
